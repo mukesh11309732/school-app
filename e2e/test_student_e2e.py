@@ -20,9 +20,11 @@ History: 82
 """
 
 
+
 class TestStudentE2E(unittest.TestCase):
     """
     End-to-end test: OCR text -> OpenAI extraction -> Frappe student creation.
+    Set E2E_CLEANUP=true to delete the student after the test.
     """
 
     def setUp(self):
@@ -34,7 +36,7 @@ class TestStudentE2E(unittest.TestCase):
         self.created_student_id = None
 
     def tearDown(self):
-        """Clean up created student from Frappe after test."""
+        """Always clean up created student from Frappe after test."""
         if self.created_student_id:
             try:
                 self.repo.delete(self.created_student_id)

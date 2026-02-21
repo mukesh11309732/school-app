@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List
+import time
 
 
 def _format_date(date_str: str) -> str:
@@ -46,7 +47,7 @@ class Student:
         name_parts = data.get("student_name", "").split()
         first_name = name_parts[0] if name_parts else "Unknown"
         last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-        email = f"{first_name.lower()}.{last_name.lower()}@school.com".replace(" ", "")
+        email = f"{first_name.lower()}.{last_name.lower()}.{int(time.time())}@school.com".replace(" ", "")
 
         return Student(
             first_name=first_name,
@@ -77,4 +78,6 @@ class Student:
             data.pop("class")
             data.pop("student_id")
         return data
+
+
 
