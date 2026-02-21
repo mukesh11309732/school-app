@@ -48,3 +48,14 @@ class StudentRepository:
 
         return response.json().get("data", [])
 
+    def delete(self, student_id: str) -> None:
+        """Deletes a Student record from Frappe by ID."""
+        response = requests.delete(
+            f"{self.frappe_url}/api/resource/Student/{student_id}",
+            headers=self.headers
+        )
+
+        if response.status_code != 202:
+            raise Exception(response.text)
+
+
