@@ -1,10 +1,10 @@
 spec:
-  name: sample-python
+  name: school-app
   services:
   - environment_slug: python
     git:
       branch: main
-      repo_clone_url: https://github.com/digitalocean/sample-python.git
+      repo_clone_url: https://github.com/mukesh11309732/school-app.git
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
-    name: sample-python
+    name: school-app
