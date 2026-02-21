@@ -3,7 +3,10 @@ import json
 import http.server
 import socketserver
 from http import HTTPStatus
+from dotenv import load_dotenv
 from app.extract_student_data import main
+
+load_dotenv()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
