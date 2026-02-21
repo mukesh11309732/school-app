@@ -28,12 +28,13 @@ def main(args):
         return {"statusCode": 400, "body": {"error": "Missing required parameter: ocr_text or file_path"}}
 
     try:
-        student_data = extract_student_data(ocr_text, api_key)
+        student = extract_student_data(ocr_text, api_key)
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": {"student_data": student_data}
+            "body": {"student_data": student.to_dict()}
         }
     except Exception as e:
         return {"statusCode": 500, "body": {"error": str(e)}}
+
 

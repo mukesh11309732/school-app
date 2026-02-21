@@ -31,8 +31,7 @@ class TestFrappeStudentIntegration(unittest.TestCase):
 
     def test_create_student(self):
         student = Student(
-            first_name="Test",
-            last_name="Integration",
+            student_name="Test Integration",
             date_of_birth="01/01/2005",
             father_name="Test Father",
             student_class="10th",
@@ -49,8 +48,7 @@ class TestFrappeStudentIntegration(unittest.TestCase):
     def test_get_student(self):
         # First create a student
         student = Student(
-            first_name="Get",
-            last_name="Test",
+            student_name="Get Test",
             date_of_birth="02/02/2005",
             father_name="Get Father",
             student_class="9th",
@@ -77,4 +75,6 @@ class TestFrappeStudentIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
 

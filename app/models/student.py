@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
 from typing import List
 import time
+from pydantic import BaseModel, Field
 
 
 def _format_date(date_str: str) -> str:
@@ -14,50 +14,36 @@ def _format_date(date_str: str) -> str:
     return date_str
 
 
-@dataclass
-class Mark:
+class Mark(BaseModel):
     subject: str
     score: float
-
-    @staticmethod
-    def from_dict(data: dict) -> "Mark":
-        return Mark(
-            subject=data.get("subject", ""),
-            score=data.get("score", 0)
-        )
 
     def to_dict(self) -> dict:
         return {"subject": self.subject, "score": self.score}
 
 
-@dataclass
-class Student:
-    first_name: str
-    last_name: str
+class Student(BaseModel):
+    student_name: str
     date_of_birth: str
     father_name: str
     student_class: str
-    marks: List[Mark] = field(default_factory=list)
+    marks: List[Mark] = Field(default_factory=list)
     email: str = ""
     student_id: str = ""
 
-    @staticmethod
-    def from_ocr_dict(data: dict) -> "Student":
-        """Creates a Student instance from OpenAI extracted OCR data."""
-        name_parts = data.get("student_name", "").split()
-        first_name = name_parts[0] if name_parts else "Unknown"
-        last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-        email = f"{first_name.lower()}.{last_name.lower()}.{int(time.time())}@school.com".replace(" ", "")
+    @property
+    def first_name(self) -> str:
+        return self.student_name.split()[0] if self.student_name else "Unknown"
 
-        return Student(
-            first_name=first_name,
-            last_name=last_name,
-            date_of_birth=data.get("date_of_birth", ""),
-            father_name=data.get("father_name", ""),
-            student_class=data.get("class", ""),
-            marks=[Mark.from_dict(m) for m in data.get("marks", [])],
-            email=email
-        )
+    @property
+    def last_name(self) -> str:
+        parts = self.student_name.split()
+        return " ".join(parts[1:]) if len(parts) > 1 else ""
+
+    def with_email(self) -> "Student":
+        """Returns a new Student with a unique generated email."""
+        email = f"{self.first_name.lower()}.{self.last_name.lower()}.{int(time.time())}@school.com".replace(" ", "")
+        return self.model_copy(update={"email": email})
 
     def to_dict(self, for_frappe: bool = False) -> dict:
         data = {
@@ -78,6 +64,4 @@ class Student:
             data.pop("class")
             data.pop("student_id")
         return data
-
-
 

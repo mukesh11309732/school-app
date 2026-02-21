@@ -21,8 +21,8 @@ class StudentRepository:
         if response.status_code not in (200, 201):
             raise Exception(response.text)
 
-        student.student_id = response.json().get("data", {}).get("name", "")
-        return student
+        student_id = response.json().get("data", {}).get("name", "")
+        return student.model_copy(update={"student_id": student_id})
 
     def get(self, student_id: str) -> dict:
         """Fetches a Student record from Frappe by ID."""
@@ -57,5 +57,6 @@ class StudentRepository:
 
         if response.status_code != 202:
             raise Exception(response.text)
+
 
 
