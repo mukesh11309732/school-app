@@ -19,6 +19,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(status)
             self.end_headers()
             self.wfile.write(response.encode())
+        elif self.path == "/" or self.path == "/index.html":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            with open(os.path.join(os.path.dirname(__file__), "static/index.html"), "rb") as f:
+                self.wfile.write(f.read())
         else:
             self.send_response(HTTPStatus.OK)
             self.end_headers()
