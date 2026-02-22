@@ -4,8 +4,8 @@ import http.server
 import socketserver
 from http import HTTPStatus
 from dotenv import load_dotenv
-from app.feed_student_data import main as feed_main
-from app.webhook import verify_webhook, handle_webhook
+from app.api.feed_student_data import main as feed_main
+from app.api.webhook import verify_webhook, handle_webhook
 
 load_dotenv()
 

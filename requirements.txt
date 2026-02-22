@@ -3,3 +3,4 @@ python-dotenv
 requests
 
 
+dependency-injector==4.48.3

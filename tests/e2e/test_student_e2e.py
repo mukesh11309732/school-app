@@ -1,7 +1,7 @@
 import os
 import unittest
 from dotenv import load_dotenv
-from app.feed_student_data import main
+from app.api.feed_student_data import main
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 

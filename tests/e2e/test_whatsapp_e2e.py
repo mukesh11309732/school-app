@@ -1,13 +1,17 @@
 import os
 import unittest
+from unittest.mock import MagicMock
 from dotenv import load_dotenv
 from app.whatsapp.webhook_handler import handle
+from app.api.feed_student_data import feed
+from app.ai.ai_client import AIClient
+from app.services.openai_client import OpenAIClient
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 
 load_dotenv()
 
-# Simulates a real WhatsApp message payload from Meta
+
 def make_whatsapp_payload(text: str, sender: str = "910000000000") -> dict:
     return {
         "entry": [{
@@ -25,21 +29,20 @@ def make_whatsapp_payload(text: str, sender: str = "910000000000") -> dict:
 
 
 class TestWhatsAppToFrappeE2E(unittest.TestCase):
-    """
-    End-to-end test: WhatsApp message -> webhook -> OpenAI -> Frappe student creation.
-    """
 
     def setUp(self):
-        client = FrappeClient(
+        frappe_client = FrappeClient(
             frappe_url=os.environ["FRAPPE_URL"],
             api_key=os.environ["FRAPPE_API_KEY"],
             api_secret=os.environ["FRAPPE_API_SECRET"]
         )
-        self.repo = StudentRepository(client)
+        self.repo = StudentRepository(frappe_client)
+        self.ai_client = AIClient(client=OpenAIClient())
+        self.whatsapp_client = MagicMock()  # mock — no real WhatsApp calls in tests
+        self.feed = lambda ocr_text: feed(ocr_text, self.ai_client, self.repo)
         self.created_student_id = None
 
     def tearDown(self):
-        """Always clean up created student from Frappe after test."""
         if self.created_student_id:
             try:
                 self.repo.delete(self.created_student_id)
@@ -49,11 +52,10 @@ class TestWhatsAppToFrappeE2E(unittest.TestCase):
 
     def test_greeting_does_not_create_student(self):
         payload = make_whatsapp_payload("hello")
-        response, status = handle(payload)
+        response, status = handle(payload, self.whatsapp_client, self.feed)
 
         self.assertEqual(status, 200)
-        # No student should be created
-        self.assertIsNone(self.created_student_id)
+        self.whatsapp_client.send_message.assert_called_once()
         print("\n[E2E] Greeting handled correctly, no student created")
 
     def test_whatsapp_message_to_frappe_student(self):
@@ -62,16 +64,14 @@ class TestWhatsAppToFrappeE2E(unittest.TestCase):
             "12th grade, Maths 88, Science 92, English 75"
         )
 
-        response, status = handle(payload)
+        response, status = handle(payload, self.whatsapp_client, self.feed)
 
         self.assertEqual(status, 200)
         print("\n[E2E] Webhook handled successfully")
 
-        # Fetch the latest student from Frappe to verify
         students = self.repo.list()
         self.assertGreater(len(students), 0)
 
-        # Find the created student by name
         latest = self.repo.get(students[0]["name"])
         self.created_student_id = latest.get("name")
 
