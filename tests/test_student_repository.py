@@ -2,20 +2,22 @@ import os
 import unittest
 from dotenv import load_dotenv
 from app.models.student import Student
+from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 
 load_dotenv()
 
 
 def get_repo() -> StudentRepository:
-    return StudentRepository(
+    client = FrappeClient(
         frappe_url=os.environ["FRAPPE_URL"],
         api_key=os.environ["FRAPPE_API_KEY"],
         api_secret=os.environ["FRAPPE_API_SECRET"]
     )
+    return StudentRepository(client)
 
 
-class TestFrappeStudentIntegration(unittest.TestCase):
+class TestStudentRepositoryFrappeIntegration(unittest.TestCase):
 
     def setUp(self):
         self.repo = get_repo()
@@ -75,6 +77,8 @@ class TestFrappeStudentIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
 
 
 

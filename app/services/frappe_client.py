@@ -1,19 +1,46 @@
-from app.models.student import Student
-from app.repositories.student_repository import StudentRepository
+import requests
 
 
-def create_student(frappe_url: str, api_key: str, api_secret: str, student: Student) -> dict:
-    """Creates a Student in Frappe using the StudentRepository."""
-    repo = StudentRepository(frappe_url, api_key, api_secret)
-
-    try:
-        student = repo.create(student)
-        return {
-            "statusCode": 200,
-            "body": {
-                "student_id": student.student_id,
-                "student": student.to_dict()
-            }
+class FrappeClient:
+    def __init__(self, frappe_url: str, api_key: str, api_secret: str):
+        self.frappe_url = frappe_url
+        self.headers = {
+            "Authorization": f"token {api_key}:{api_secret}",
+            "Content-Type": "application/json"
         }
-    except Exception as e:
-        return {"statusCode": 500, "body": {"error": str(e)}}
+
+    def post(self, resource: str, payload: dict) -> dict:
+        response = requests.post(
+            f"{self.frappe_url}/api/resource/{resource}",
+            json=payload,
+            headers=self.headers
+        )
+        if response.status_code not in (200, 201):
+            raise Exception(response.text)
+        return response.json().get("data", {})
+
+    def get(self, resource: str, name: str) -> dict:
+        response = requests.get(
+            f"{self.frappe_url}/api/resource/{resource}/{name}",
+            headers=self.headers
+        )
+        if response.status_code != 200:
+            raise Exception(response.text)
+        return response.json().get("data", {})
+
+    def list(self, resource: str) -> list:
+        response = requests.get(
+            f"{self.frappe_url}/api/resource/{resource}",
+            headers=self.headers
+        )
+        if response.status_code != 200:
+            raise Exception(response.text)
+        return response.json().get("data", [])
+
+    def delete(self, resource: str, name: str) -> None:
+        response = requests.delete(
+            f"{self.frappe_url}/api/resource/{resource}/{name}",
+            headers=self.headers
+        )
+        if response.status_code != 202:
+            raise Exception(response.text)

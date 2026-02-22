@@ -2,6 +2,7 @@ import os
 import unittest
 from dotenv import load_dotenv
 from app.feed_student_data import main
+from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 
 load_dotenv()
@@ -28,11 +29,12 @@ class TestStudentE2E(unittest.TestCase):
     """
 
     def setUp(self):
-        self.repo = StudentRepository(
+        client = FrappeClient(
             frappe_url=os.environ["FRAPPE_URL"],
             api_key=os.environ["FRAPPE_API_KEY"],
             api_secret=os.environ["FRAPPE_API_SECRET"]
         )
+        self.repo = StudentRepository(client)
         self.created_student_id = None
 
     def tearDown(self):
@@ -79,4 +81,6 @@ class TestStudentE2E(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
 
