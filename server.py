@@ -4,10 +4,13 @@ import http.server
 import socketserver
 from http import HTTPStatus
 from dotenv import load_dotenv
-from app.api.feed_student_data import main as feed_main
+from app.api.feed_student_data import feed
 from app.api.webhook import verify_webhook, handle_webhook
+from app.modules.container import Container
 
 load_dotenv()
+
+container = Container()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -45,7 +48,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path.startswith('/feed'):
-            result = feed_main(args)
+            result = feed(args.get("ocr_text", ""), container.ai_client(), container.student_repository())
             self.send_response(result.get("statusCode", 200))
             self.send_header('Content-Type', 'application/json')
             self.end_headers()

@@ -59,25 +59,29 @@ class TestWhatsAppToFrappeE2E(unittest.TestCase):
         print("\n[E2E] Greeting handled correctly, no student created")
 
     def test_whatsapp_message_to_frappe_student(self):
+        feed_results = []
+        def capturing_feed(ocr_text):
+            result = self.feed(ocr_text)
+            feed_results.append(result)
+            return result
+
         payload = make_whatsapp_payload(
             "John WhatsApp, born 10 March 2006, father Mike WhatsApp, "
             "12th grade, Maths 88, Science 92, English 75"
         )
 
-        response, status = handle(payload, self.whatsapp_client, self.feed)
+        response, status = handle(payload, self.whatsapp_client, capturing_feed)
 
         self.assertEqual(status, 200)
-        print("\n[E2E] Webhook handled successfully")
+        self.assertEqual(len(feed_results), 1)
+        self.assertEqual(feed_results[0]["statusCode"], 200)
 
-        students = self.repo.list()
-        self.assertGreater(len(students), 0)
-
-        latest = self.repo.get(students[0]["name"])
-        self.created_student_id = latest.get("name")
-
-        self.assertIsNotNone(self.created_student_id)
+        self.created_student_id = feed_results[0]["body"]["student_id"]
         self.assertTrue(self.created_student_id.startswith("EDU-STU-"))
-        self.assertEqual(latest.get("first_name"), "John")
+        print(f"\n[E2E] Webhook handled successfully")
+
+        fetched = self.repo.get(self.created_student_id)
+        self.assertEqual(fetched.get("first_name"), "John")
         print(f"[E2E] Student verified in Frappe: {self.created_student_id}")
 
 

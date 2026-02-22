@@ -8,20 +8,41 @@ A Python app that extracts structured student data from OCR text using OpenAI an
 school-app/
 ├── app/
 │   ├── ai/
-│   │   └── ai_client.py            # AIClient — wraps OpenAIClient
+│   │   └── ai_client.py                    # AIClient — wraps OpenAIClient
+│   ├── api/
+│   │   ├── feed_student_data.py            # POST /feed logic
+│   │   └── webhook.py                      # WhatsApp webhook entry point
 │   ├── models/
-│   │   └── student.py              # Student & Mark Pydantic models
+│   │   └── student.py                      # Student & Mark Pydantic models
+│   ├── modules/
+│   │   └── container.py                    # DI Container
 │   ├── repositories/
-│   │   └── student_repository.py   # StudentRepository — CRUD via FrappeClient
-│   └── services/
-│       ├── openai_client.py        # OpenAIClient — calls OpenAI API
-│       └── frappe_client.py        # FrappeClient — calls Frappe REST API
+│   │   └── student_repository.py           # StudentRepository — CRUD via FrappeClient
+│   ├── services/
+│   │   ├── openai_client.py                # OpenAIClient — calls OpenAI API
+│   │   ├── frappe_client.py                # FrappeClient — calls Frappe REST API
+│   │   └── whatsapp_client.py              # WhatsAppClient — calls WhatsApp API
+│   └── whatsapp/
+│       ├── constants.py                    # Greetings, help message
+│       ├── message_handler.py              # Routes incoming messages
+│       ├── verification.py                 # Meta webhook handshake
+│       └── webhook_handler.py              # Parses webhook payload
 ├── tests/
-│   ├── test_ai_client.py           # AIClient + OpenAI integration tests
-│   └── test_student_repository.py  # StudentRepository + Frappe integration tests
-├── e2e/
-│   └── test_student_e2e.py         # End-to-end: OCR → OpenAI → Frappe
-├── server.py                       # HTTP server with /feed endpoint
+│   ├── unit/
+│   │   ├── api/
+│   │   │   ├── test_feed.py                # Unit tests for feed logic
+│   │   │   └── test_webhook_handler.py     # Unit tests for webhook handler
+│   │   └── whatsapp/
+│   │       └── test_message_handler.py     # Unit tests for message handler
+│   ├── integration/
+│   │   ├── test_ai_client.py               # AIClient + OpenAI integration tests
+│   │   └── test_student_repository.py      # StudentRepository + Frappe integration tests
+│   └── e2e/
+│       ├── test_student_e2e.py             # OCR → OpenAI → Frappe e2e test
+│       └── test_whatsapp_e2e.py            # WhatsApp → OpenAI → Frappe e2e test
+├── static/
+│   └── index.html                          # Landing page
+├── server.py                               # HTTP server
 └── requirements.txt
 ```
 
@@ -89,19 +110,19 @@ curl -X POST http://localhost:8080/feed \
 
 Run all tests:
 ```bash
-python -m unittest discover -v
+python -m unittest discover -s tests -v
 ```
 
-Run specific test suites:
+Run by suite:
 ```bash
-# AI Client + OpenAI integration
-python -m unittest tests.test_ai_client -v
+# Unit tests (no API calls, instant)
+python -m unittest discover -s tests/unit -v
 
-# Student Repository + Frappe integration
-python -m unittest tests.test_student_repository -v
+# Integration tests (real OpenAI + Frappe)
+python -m unittest discover -s tests/integration -v
 
-# End-to-end
-python -m unittest e2e.test_student_e2e -v
+# End-to-end tests (full pipeline)
+python -m unittest discover -s tests/e2e -v
 ```
 
 ## WhatsApp Chatbot

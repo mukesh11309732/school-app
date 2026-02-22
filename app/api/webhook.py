@@ -2,8 +2,11 @@ import logging
 from app.whatsapp.verification import verify
 from app.whatsapp.webhook_handler import handle
 from app.api.feed_student_data import feed
+from app.modules.container import Container
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+container = Container()
 
 
 def verify_webhook(params: dict) -> tuple:
@@ -11,8 +14,6 @@ def verify_webhook(params: dict) -> tuple:
 
 
 def handle_webhook(body: dict) -> tuple:
-    from app.modules.container import Container
-    container = Container()
     return handle(
         body,
         whatsapp_client=container.whatsapp_client(),

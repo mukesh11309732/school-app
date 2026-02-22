@@ -1,7 +1,9 @@
 import os
 import unittest
 from dotenv import load_dotenv
-from app.api.feed_student_data import main
+from app.api.feed_student_data import feed
+from app.ai.ai_client import AIClient
+from app.services.openai_client import OpenAIClient
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 
@@ -29,16 +31,16 @@ class TestStudentE2E(unittest.TestCase):
     """
 
     def setUp(self):
-        client = FrappeClient(
+        frappe_client = FrappeClient(
             frappe_url=os.environ["FRAPPE_URL"],
             api_key=os.environ["FRAPPE_API_KEY"],
             api_secret=os.environ["FRAPPE_API_SECRET"]
         )
-        self.repo = StudentRepository(client)
+        self.repo = StudentRepository(frappe_client)
+        self.ai_client = AIClient(client=OpenAIClient())
         self.created_student_id = None
 
     def tearDown(self):
-        """Always clean up created student from Frappe after test."""
         if self.created_student_id:
             try:
                 self.repo.delete(self.created_student_id)
@@ -48,7 +50,7 @@ class TestStudentE2E(unittest.TestCase):
 
     def test_ocr_to_frappe_student(self):
         # Step 1: Run full pipeline
-        result = main({"ocr_text": OCR_TEXT})
+        result = feed(OCR_TEXT, self.ai_client, self.repo)
 
         # Step 2: Assert successful response
         self.assertEqual(result["statusCode"], 200, msg=result.get("body"))
@@ -81,6 +83,3 @@ class TestStudentE2E(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-
-

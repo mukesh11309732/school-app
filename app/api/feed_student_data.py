@@ -1,4 +1,3 @@
-import os
 from app.ai.ai_client import AIClient
 from app.repositories.student_repository import StudentRepository
 
@@ -20,10 +19,3 @@ def feed(ocr_text: str, ai_client: AIClient, repo: StudentRepository) -> dict:
     except Exception as e:
         return {"statusCode": 500, "body": {"error": str(e)}}
 
-
-def main(args):
-    """Entry point — wires up dependencies via container."""
-    from app.modules.container import Container
-    container = Container()
-    ocr_text = args.get("ocr_text", "")
-    return feed(ocr_text, container.ai_client(), container.student_repository())

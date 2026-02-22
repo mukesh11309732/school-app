@@ -18,9 +18,9 @@ class Container(containers.DeclarativeContainer):
     # --- Frappe ---
     frappe_client = providers.Singleton(
         FrappeClient,
-        frappe_url=os.environ.get("FRAPPE_URL", ""),
-        api_key=os.environ.get("FRAPPE_API_KEY", ""),
-        api_secret=os.environ.get("FRAPPE_API_SECRET", "")
+        frappe_url=providers.Callable(lambda: os.environ["FRAPPE_URL"]),
+        api_key=providers.Callable(lambda: os.environ["FRAPPE_API_KEY"]),
+        api_secret=providers.Callable(lambda: os.environ["FRAPPE_API_SECRET"])
     )
 
     # --- Repository ---
