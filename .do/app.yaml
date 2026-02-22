@@ -1,8 +1,8 @@
-name: school-app
+name: school-ai
 services:
 - environment_slug: python
   github:
     branch: main
     deploy_on_push: true
     repo: mukesh11309732/school-app
-  name: school-app
+  name: school-ai
