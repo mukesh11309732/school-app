@@ -5,22 +5,32 @@ import socketserver
 from http import HTTPStatus
 from dotenv import load_dotenv
 from app.feed_student_data import main as feed_main
+from app.webhook import verify_webhook, handle_webhook
 
 load_dotenv()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(HTTPStatus.OK)
-        self.end_headers()
-        msg = 'Hello! you requested %s' % (self.path)
-        self.wfile.write(msg.encode())
+        print(f"GET {self.path}")
+        if self.path.startswith("/webhook"):
+            params = dict(p.split("=") for p in self.path.split("?")[1].split("&")) if "?" in self.path else {}
+            response, status = verify_webhook(params)
+            self.send_response(status)
+            self.end_headers()
+            self.wfile.write(response.encode())
+        else:
+            self.send_response(HTTPStatus.OK)
+            self.end_headers()
+            self.wfile.write(b"School App is running")
 
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length)
+        print(f"POST {self.path} - body: {body[:500]}")
+
         try:
-            args = json.loads(body)
+            args = json.loads(body) if body else {}
         except json.JSONDecodeError:
             self.send_response(HTTPStatus.BAD_REQUEST)
             self.send_header('Content-Type', 'application/json')
@@ -28,17 +38,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
             return
 
-        if self.path == '/feed':
+        if self.path.startswith('/feed'):
             result = feed_main(args)
+            self.send_response(result.get("statusCode", 200))
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result.get("body")).encode())
+        elif self.path.startswith('/webhook'):
+            # Respond 200 immediately as Meta requires fast response
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+            handle_webhook(args)
         else:
             self.send_response(HTTPStatus.NOT_FOUND)
             self.end_headers()
-            return
-
-        self.send_response(result.get("statusCode", 200))
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(result.get("body")).encode())
 
 
 port = int(os.getenv('PORT', 8080))

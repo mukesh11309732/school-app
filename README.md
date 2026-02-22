@@ -104,6 +104,56 @@ python -m unittest tests.test_student_repository -v
 python -m unittest e2e.test_student_e2e -v
 ```
 
+## WhatsApp Chatbot
+
+Send student OCR text via WhatsApp and the bot will extract and feed it into Frappe automatically.
+
+### Setup
+
+1. Create a [Meta Developer App](https://developers.facebook.com/) and add the WhatsApp product
+2. Get your **WhatsApp Token**, **Phone Number ID** and set a **Verify Token**
+3. Add to `.env`:
+```
+WHATSAPP_TOKEN=your-whatsapp-token
+WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+WHATSAPP_VERIFY_TOKEN=your-verify-token
+```
+4. Expose your local server using ngrok:
+```bash
+ngrok http 8080
+```
+5. Set the webhook URL in Meta Developer Console to:
+```
+https://<ngrok-id>.ngrok.io/webhook
+```
+
+### Webhook Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/webhook` | Meta verification handshake |
+| `POST` | `/webhook` | Receives WhatsApp messages |
+
+### Usage
+
+Simply send a WhatsApp message to your bot number with student data:
+```
+Student Name: John Doe
+Date of Birth: 15/08/2005
+Father Name: Robert Doe
+Class: 10th
+Maths: 92, Science: 88
+```
+
+The bot will reply:
+```
+✅ Student created successfully!
+Name: John Doe
+ID: EDU-STU-2026-00001
+Class: 10th
+Subjects: 2
+```
+
 ## Deployment
 
 Deployed on [DigitalOcean App Platform](https://cloud.digitalocean.com/apps). Auto-deploys on push to `main`.
