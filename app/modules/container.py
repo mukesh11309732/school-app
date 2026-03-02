@@ -1,43 +1,21 @@
-import os
-from dependency_injector import containers, providers
-from app.services.openai_client import OpenAIClient
-from app.services.frappe_client import FrappeClient
-from app.services.whatsapp_client import WhatsAppClient
-from app.ai.ai_client import AIClient
-from app.repositories.student_repository import StudentRepository
-from app.whatsapp.conversation_store import ConversationStore
-
-
-def _fetch_available_programs(frappe_client: FrappeClient) -> list[str]:
-    """Fetches program names from Frappe to provide OpenAI with valid options."""
-    try:
-        programs = frappe_client.list("Program")
-        return [p["name"] for p in programs if "name" in p]
-    except Exception:
-        return []
+from dependency_injector import containers
+from app.modules import frappe_providers, whatsapp_providers
+from app.modules.openai_providers import make_openai_providers
+from app.modules.ai_providers import make_ai_providers
 
 
 class Container(containers.DeclarativeContainer):
 
     # --- Frappe ---
-    frappe_client = providers.Singleton(
-        FrappeClient,
-        frappe_url=providers.Callable(lambda: os.environ["FRAPPE_URL"]),
-        api_key=providers.Callable(lambda: os.environ["FRAPPE_API_KEY"]),
-        api_secret=providers.Callable(lambda: os.environ["FRAPPE_API_SECRET"])
-    )
+    frappe_client = frappe_providers.frappe_client
+    student_repository = frappe_providers.student_repository
 
-    # --- OpenAI (programs fetched from Frappe so AI knows valid options) ---
-    available_programs = providers.Callable(_fetch_available_programs, frappe_client=frappe_client)
-    openai_client = providers.Singleton(OpenAIClient, available_programs=available_programs)
+    # --- OpenAI ---
+    openai_client = make_openai_providers(frappe_client)
 
     # --- AI ---
-    ai_client = providers.Singleton(AIClient, client=openai_client)
-
-    # --- Repository ---
-    student_repository = providers.Singleton(StudentRepository, client=frappe_client)
+    ai_client = make_ai_providers(openai_client)
 
     # --- WhatsApp ---
-    whatsapp_client = providers.Singleton(WhatsAppClient)
-    conversation_store = providers.Singleton(ConversationStore)
-
+    whatsapp_client = whatsapp_providers.whatsapp_client
+    conversation_store = whatsapp_providers.conversation_store

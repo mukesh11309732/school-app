@@ -26,8 +26,8 @@ class TestWebhookHandler(unittest.TestCase):
         self.conversation_store = MagicMock()
         self.conversation_store.is_awaiting_confirmation.return_value = False
         self.conversation_store.get.return_value = None
-        self.repo = MagicMock()
-        self.feed = MagicMock(return_value={
+        self.feed_service = MagicMock()
+        self.feed_service.feed.return_value = {
             "statusCode": 280,
             "body": {
                 "status": "pending_confirmation",
@@ -39,10 +39,10 @@ class TestWebhookHandler(unittest.TestCase):
                     "date_of_birth": "", "address_line_1": "",
                 }
             }
-        })
+        }
 
     def _handle(self, payload):
-        return handle(payload, self.whatsapp_client, self.feed, self.conversation_store, self.repo)
+        return handle(payload, self.whatsapp_client, self.feed_service, self.conversation_store)
 
     def test_returns_200_for_valid_message(self):
         response, status = self._handle(make_payload("John Doe"))
@@ -60,7 +60,7 @@ class TestWebhookHandler(unittest.TestCase):
 
     def test_passes_message_to_handler(self):
         self._handle(make_payload("John Doe, 10th grade"))
-        self.feed.assert_called_once_with("John Doe, 10th grade", context=None)
+        self.feed_service.feed.assert_called_once_with("John Doe, 10th grade", context=None)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 import logging
-from typing import Callable
-from app.api.feed_student_data import confirm
-from app.repositories.student_repository import StudentRepository
+from app.api.feed_student_data import StudentFeedService
 from app.services.whatsapp_client import WhatsAppClient
 from app.whatsapp.constants import GREETINGS, HELP_MESSAGE
 from app.whatsapp.conversation_store import ConversationStore
@@ -21,7 +19,7 @@ FIELD_LABELS = {
 }
 
 
-def handle_message(message: dict, whatsapp_client: WhatsAppClient, feed: Callable, conversation_store: ConversationStore, repo: StudentRepository) -> None:
+def handle_message(message: dict, whatsapp_client: WhatsAppClient, feed_service: StudentFeedService, conversation_store: ConversationStore) -> None:
     sender = message.get("from")
     msg_type = message.get("type")
     logger.info("Message from %s, type: %s", sender, msg_type)
@@ -41,18 +39,18 @@ def handle_message(message: dict, whatsapp_client: WhatsAppClient, feed: Callabl
         return
 
     if conversation_store.is_awaiting_confirmation(sender):
-        _handle_confirmation(sender, text, whatsapp_client, conversation_store, repo)
+        _handle_confirmation(sender, text, whatsapp_client, feed_service, conversation_store)
         return
 
-    _process_student(sender, text, whatsapp_client, feed, conversation_store)
+    _process_student(sender, text, whatsapp_client, feed_service, conversation_store)
 
 
-def _handle_confirmation(sender: str, text: str, whatsapp_client: WhatsAppClient, conversation_store: ConversationStore, repo: StudentRepository) -> None:
+def _handle_confirmation(sender: str, text: str, whatsapp_client: WhatsAppClient, feed_service: StudentFeedService, conversation_store: ConversationStore) -> None:
     keyword = text.strip().lower()
 
     if keyword in CONFIRM_KEYWORDS:
         data = conversation_store.get_confirmed_data(sender)
-        result = confirm(data, repo)
+        result = feed_service.confirm(data)
         status = result.get("statusCode")
         body = result.get("body", {})
 
@@ -82,11 +80,11 @@ def _handle_confirmation(sender: str, text: str, whatsapp_client: WhatsAppClient
     whatsapp_client.send_message(sender, reply)
 
 
-def _process_student(sender: str, ocr_text: str, whatsapp_client: WhatsAppClient, feed: Callable, conversation_store: ConversationStore) -> None:
+def _process_student(sender: str, ocr_text: str, whatsapp_client: WhatsAppClient, feed_service: StudentFeedService, conversation_store: ConversationStore) -> None:
     logger.info("Processing OCR text from %s: %s", sender, ocr_text)
 
     context = conversation_store.get(sender)
-    result = feed(ocr_text, context=context)
+    result = feed_service.feed(ocr_text, context=context)
     status = result.get("statusCode")
     body = result.get("body", {})
 

@@ -2,8 +2,9 @@ import os
 import time
 import unittest
 from dotenv import load_dotenv
-from app.api.feed_student_data import feed, confirm
+from app.api.feed_student_data import StudentFeedService
 from app.ai.ai_client import AIClient
+from app.ai.prompts import STUDENT_SYSTEM_PROMPT
 from app.services.openai_client import OpenAIClient
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
@@ -31,7 +32,8 @@ class TestStudentE2E(unittest.TestCase):
             api_secret=os.environ["FRAPPE_API_SECRET"]
         )
         self.repo = StudentRepository(frappe_client)
-        self.ai_client = AIClient(client=OpenAIClient())
+        ai_client = AIClient(client=OpenAIClient(system_prompt=STUDENT_SYSTEM_PROMPT))
+        self.service = StudentFeedService(ai_client=ai_client, repo=self.repo)
         self.created = None  # {student_id, guardian_id, enrollment_id}
 
     def tearDown(self):
@@ -55,7 +57,7 @@ class TestStudentE2E(unittest.TestCase):
         ocr = OCR_TEXT.replace("{ts}", str(ts)).replace("E2E Testuser", f"E2E User{ts}").replace("E2E Father", f"E2E Dad{ts}")
 
         # Step 1: feed returns preview for confirmation
-        result = feed(ocr, self.ai_client, self.repo)
+        result = self.service.feed(ocr)
         self.assertEqual(result["statusCode"], 280, msg=result.get("body"))
         self.assertEqual(result["body"]["status"], "pending_confirmation")
 
@@ -64,7 +66,7 @@ class TestStudentE2E(unittest.TestCase):
         print(f"\n[E2E] Preview received: {preview['first_name']} {preview['last_name']}")
 
         # Step 2: confirm creates in Frappe
-        confirmed = confirm(result["body"]["extracted_data"], self.repo)
+        confirmed = self.service.confirm(result["body"]["extracted_data"])
         self.assertEqual(confirmed["statusCode"], 200, msg=confirmed.get("body"))
 
         body = confirmed["body"]

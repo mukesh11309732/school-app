@@ -1,6 +1,7 @@
 import unittest
 from dotenv import load_dotenv
 from app.ai.ai_client import AIClient
+from app.ai.prompts import STUDENT_SYSTEM_PROMPT
 from app.services.openai_client import OpenAIClient
 
 load_dotenv()
@@ -21,7 +22,7 @@ OCR_TEXT = (
 class TestAIClientOpenAIIntegration(unittest.TestCase):
 
     def setUp(self):
-        self.client = AIClient(client=OpenAIClient())
+        self.client = AIClient(client=OpenAIClient(system_prompt=STUDENT_SYSTEM_PROMPT))
 
     def test_returns_dict(self):
         result = self.client.extract(OCR_TEXT)

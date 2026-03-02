@@ -32,69 +32,69 @@ def _build_student(data: dict) -> Student:
     )
 
 
-def feed(ocr_text: str, ai_client: AIClient, repo: StudentRepository, context: dict = None) -> dict:
-    """
-    Extracts and validates student data, then returns a pending_confirmation response.
-    The caller is expected to re-call confirm() once the user confirms.
-    """
-    if not ocr_text:
-        return {"statusCode": 400, "body": {"error": "Missing required parameter: ocr_text"}}
-    merged = {}
-    try:
-        extracted = ai_client.extract(ocr_text)
-        merged = {**(context or {}), **{k: v for k, v in extracted.items() if v}}
-        student = _build_student(merged)
-        # Validate duplicate before asking user to confirm
-        repo._check_duplicate(student)
-        return {
-            "statusCode": 280,
-            "body": {
-                "status": "pending_confirmation",
-                "extracted_data": merged,
-                "preview": student.to_dict()
-            }
-        }
-    except MissingFieldsError as e:
-        return {
-            "statusCode": 422,
-            "body": {
-                "error": "missing_fields",
-                "missing_fields": e.missing,
-                "message": str(e),
-                "partial_data": merged
-            }
-        }
-    except DuplicateStudentError as e:
-        return {
-            "statusCode": 409,
-            "body": {
-                "error": "duplicate_student",
-                "message": str(e)
-            }
-        }
-    except Exception as e:
-        return {"statusCode": 500, "body": {"error": str(e)}}
+class StudentFeedService:
+    def __init__(self, ai_client: AIClient, repo: StudentRepository):
+        self.ai_client = ai_client
+        self.repo = repo
 
-
-def confirm(data: dict, repo: StudentRepository) -> dict:
-    """Creates the student in Frappe using pre-validated extracted data."""
-    try:
-        student = _build_student(data)
-        result = repo.create(student)
-        return {
-            "statusCode": 200,
-            "body": {
-                "student_id": result["student"].student_id,
-                "student": result["student"].to_dict(),
-                "created": result
+    def feed(self, ocr_text: str, context: dict = None) -> dict:
+        """
+        Extracts and validates student data, then returns a pending_confirmation response.
+        The caller is expected to re-call confirm() once the user confirms.
+        """
+        if not ocr_text:
+            return {"statusCode": 400, "body": {"error": "Missing required parameter: ocr_text"}}
+        merged = {}
+        try:
+            extracted = self.ai_client.extract(ocr_text)
+            merged = {**(context or {}), **{k: v for k, v in extracted.items() if v}}
+            student = _build_student(merged)
+            # Validate duplicate before asking user to confirm
+            self.repo._check_duplicate(student)
+            return {
+                "statusCode": 280,
+                "body": {
+                    "status": "pending_confirmation",
+                    "extracted_data": merged,
+                    "preview": student.to_dict()
+                }
             }
-        }
-    except DuplicateStudentError as e:
-        return {
-            "statusCode": 409,
-            "body": {"error": "duplicate_student", "message": str(e)}
-        }
-    except Exception as e:
-        return {"statusCode": 500, "body": {"error": str(e)}}
+        except MissingFieldsError as e:
+            return {
+                "statusCode": 422,
+                "body": {
+                    "error": "missing_fields",
+                    "missing_fields": e.missing,
+                    "message": str(e),
+                    "partial_data": merged
+                }
+            }
+        except DuplicateStudentError as e:
+            return {
+                "statusCode": 409,
+                "body": {"error": "duplicate_student", "message": str(e)}
+            }
+        except Exception as e:
+            return {"statusCode": 500, "body": {"error": str(e)}}
 
+    def confirm(self, data: dict) -> dict:
+        """Creates the student in Frappe using pre-validated extracted data."""
+        try:
+            student = _build_student(data)
+            result = self.repo.create(student)
+            return {
+                "statusCode": 200,
+                "body": {
+                    "student_id": result["student"].student_id,
+                    "student": result["student"].to_dict(),
+                    "created": result
+                }
+            }
+        except DuplicateStudentError as e:
+            return {
+                "statusCode": 409,
+                "body": {"error": "duplicate_student", "message": str(e)}
+            }
+        except Exception as e:
+            return {"statusCode": 500, "body": {"error": str(e)}}
 

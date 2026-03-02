@@ -5,8 +5,9 @@ from unittest.mock import MagicMock
 from dotenv import load_dotenv
 from app.whatsapp.webhook_handler import handle
 from app.whatsapp.conversation_store import ConversationStore
-from app.api.feed_student_data import feed
+from app.api.feed_student_data import StudentFeedService
 from app.ai.ai_client import AIClient
+from app.ai.prompts import STUDENT_SYSTEM_PROMPT
 from app.services.openai_client import OpenAIClient
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
@@ -39,10 +40,10 @@ class TestWhatsAppToFrappeE2E(unittest.TestCase):
             api_secret=os.environ["FRAPPE_API_SECRET"]
         )
         self.repo = StudentRepository(frappe_client)
-        self.ai_client = AIClient(client=OpenAIClient())
+        self.ai_client = AIClient(client=OpenAIClient(system_prompt=STUDENT_SYSTEM_PROMPT))
         self.whatsapp_client = MagicMock()
         self.conversation_store = ConversationStore()
-        self.feed = lambda ocr_text, context=None: feed(ocr_text, self.ai_client, self.repo, context)
+        self.feed_service = StudentFeedService(ai_client=self.ai_client, repo=self.repo)
         self.created = None
 
     def tearDown(self):
@@ -62,7 +63,7 @@ class TestWhatsAppToFrappeE2E(unittest.TestCase):
                 pass
 
     def _handle(self, payload):
-        return handle(payload, self.whatsapp_client, self.feed, self.conversation_store, self.repo)
+        return handle(payload, self.whatsapp_client, self.feed_service, self.conversation_store)
 
     def test_greeting_does_not_create_student(self):
         response, status = self._handle(make_whatsapp_payload("hello"))
