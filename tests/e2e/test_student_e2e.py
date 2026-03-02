@@ -1,7 +1,8 @@
 import os
+import time
 import unittest
 from dotenv import load_dotenv
-from app.api.feed_student_data import feed
+from app.api.feed_student_data import feed, confirm
 from app.ai.ai_client import AIClient
 from app.services.openai_client import OpenAIClient
 from app.services.frappe_client import FrappeClient
@@ -12,23 +13,16 @@ load_dotenv()
 OCR_TEXT = """
 Student Name: E2E Testuser
 Date of Birth: 05/06/2004
-Father's Name: E2E Father
+Father Name: E2E Father
 Class: 11th Grade
-
-Marks:
-Mathematics: 90
-Science: 85
-English: 78
-History: 82
+Student ID: STU-E2E-{ts}
+Address: 99 E2E Street, Test City
+Program: Class VIII
+Academic Year: 2026-2027
 """
 
 
-
 class TestStudentE2E(unittest.TestCase):
-    """
-    End-to-end test: OCR text -> OpenAI extraction -> Frappe student creation.
-    Set E2E_CLEANUP=true to delete the student after the test.
-    """
 
     def setUp(self):
         frappe_client = FrappeClient(
@@ -38,47 +32,54 @@ class TestStudentE2E(unittest.TestCase):
         )
         self.repo = StudentRepository(frappe_client)
         self.ai_client = AIClient(client=OpenAIClient())
-        self.created_student_id = None
+        self.created = None  # {student_id, guardian_id, enrollment_id}
 
     def tearDown(self):
-        if self.created_student_id:
+        if self.created:
             try:
-                self.repo.delete(self.created_student_id)
-                print(f"\n[CLEANUP] Deleted student: {self.created_student_id}")
+                self.repo.delete_program_enrollment(self.created["enrollment_id"])
+            except Exception:
+                pass
+            try:
+                self.repo.delete(self.created["student_id"])
+                print(f"\n[CLEANUP] Deleted student: {self.created['student_id']}")
             except Exception as e:
-                print(f"\n[CLEANUP] Failed to delete {self.created_student_id}: {e}")
+                print(f"\n[CLEANUP] Failed to delete student: {e}")
+            try:
+                self.repo.delete_guardian(self.created["guardian_id"])
+            except Exception:
+                pass
 
     def test_ocr_to_frappe_student(self):
-        # Step 1: Run full pipeline
-        result = feed(OCR_TEXT, self.ai_client, self.repo)
+        ts = int(time.time())
+        ocr = OCR_TEXT.replace("{ts}", str(ts)).replace("E2E Testuser", f"E2E User{ts}").replace("E2E Father", f"E2E Dad{ts}")
 
-        # Step 2: Assert successful response
-        self.assertEqual(result["statusCode"], 200, msg=result.get("body"))
+        # Step 1: feed returns preview for confirmation
+        result = feed(ocr, self.ai_client, self.repo)
+        self.assertEqual(result["statusCode"], 280, msg=result.get("body"))
+        self.assertEqual(result["body"]["status"], "pending_confirmation")
 
-        body = result["body"]
+        preview = result["body"]["preview"]
+        self.assertEqual(preview["first_name"], "E2E")
+        print(f"\n[E2E] Preview received: {preview['first_name']} {preview['last_name']}")
+
+        # Step 2: confirm creates in Frappe
+        confirmed = confirm(result["body"]["extracted_data"], self.repo)
+        self.assertEqual(confirmed["statusCode"], 200, msg=confirmed.get("body"))
+
+        body = confirmed["body"]
         student_id = body.get("student_id")
-        student = body.get("student")
+        self.created = body.get("created")
 
-        self.created_student_id = student_id
-
-        # Step 3: Assert student ID was created in Frappe
         self.assertIsNotNone(student_id)
         self.assertTrue(student_id.startswith("EDU-STU-"))
-        print(f"\n[E2E] Student created in Frappe: {student_id}")
+        print(f"[E2E] Student created in Frappe: {student_id}")
 
-        # Step 4: Assert extracted data is correct
-        self.assertEqual(student["first_name"], "E2E")
-        self.assertEqual(student["last_name"], "Testuser")
-        self.assertIsNotNone(student["date_of_birth"])
-        self.assertIsInstance(student["marks"], list)
-        self.assertGreater(len(student["marks"]), 0)
-        print(f"[E2E] Extracted {len(student['marks'])} subjects")
-
-        # Step 5: Verify student exists in Frappe
+        # Step 3: Verify in Frappe
         fetched = self.repo.get(student_id)
         self.assertEqual(fetched.get("name"), student_id)
         self.assertEqual(fetched.get("first_name"), "E2E")
-        print(f"[E2E] Verified student in Frappe: {fetched.get('name')}")
+        print(f"[E2E] Verified in Frappe: {student_id}")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,23 @@ import unittest
 from unittest.mock import MagicMock
 from app.ai.ai_client import AIClient
 from app.models.student import Student, Mark
+from app.models.guardian import Guardian
+from app.models.program_enrollment import ProgramEnrollment
+
+
+def make_full_student(**kwargs):
+    defaults = dict(
+        student_name="John Doe",
+        date_of_birth="15/08/2005",
+        student_class="10th",
+        student_id="EDU-STU-2026-00001",
+        address="123 Main St Mumbai",
+        guardian=Guardian(guardian_name="Robert Doe"),
+        program_enrollment=ProgramEnrollment(program="Class X", academic_year="2026-2027"),
+        marks=[Mark(subject="Maths", score=92.0)],
+        email="john.doe@school.com",
+    )
+    return Student(**{**defaults, **kwargs})
 
 
 class TestAIClient(unittest.TestCase):
@@ -9,14 +26,7 @@ class TestAIClient(unittest.TestCase):
     def setUp(self):
         self.openai_client = MagicMock()
         self.ai_client = AIClient(client=self.openai_client)
-        self.student = Student(
-            student_name="John Doe",
-            date_of_birth="15/08/2005",
-            father_name="Robert Doe",
-            student_class="10th",
-            marks=[Mark(subject="Maths", score=92.0)],
-            email="john.doe@school.com"
-        )
+        self.student = make_full_student()
 
     def test_process_calls_openai_client_with_schema(self):
         self.openai_client.process.return_value = self.student

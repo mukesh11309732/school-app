@@ -1,20 +1,19 @@
 import unittest
 from unittest.mock import MagicMock
 from app.api.feed_student_data import feed
-from app.models.student import Student, Mark
 
 
-def make_student(**kwargs) -> Student:
-    defaults = dict(
-        student_name="John Doe",
-        date_of_birth="15/08/2005",
-        father_name="Robert Doe",
-        student_class="10th",
-        marks=[Mark(subject="Maths", score=92)],
-        email="john.doe@school.com",
-        student_id="EDU-STU-2026-00001"
-    )
-    return Student(**{**defaults, **kwargs})
+VALID_EXTRACTED = {
+    "student_name": "John Doe",
+    "date_of_birth": "15/08/2005",
+    "student_class": "10th",
+    "student_id": "EDU-STU-2026-00001",
+    "address": "123 Main St Mumbai",
+    "guardian_name": "Robert Doe",
+    "guardian_relation": "Father",
+    "program": "Class X",
+    "academic_year": "2026-2027",
+}
 
 
 class TestFeed(unittest.TestCase):
@@ -26,40 +25,38 @@ class TestFeed(unittest.TestCase):
     def test_returns_400_when_ocr_text_missing(self):
         result = feed("", self.ai_client, self.repo)
         self.assertEqual(result["statusCode"], 400)
-        self.ai_client.process.assert_not_called()
+        self.ai_client.extract.assert_not_called()
         self.repo.create.assert_not_called()
 
-    def test_returns_200_on_success(self):
-        student = make_student()
-        self.ai_client.process.return_value = student
-        self.repo.create.return_value = student
+    def test_returns_280_on_success_with_preview(self):
+        self.ai_client.extract.return_value = VALID_EXTRACTED
+        self.repo._check_duplicate.return_value = None
 
         result = feed("John Doe, 10th grade", self.ai_client, self.repo)
 
-        self.assertEqual(result["statusCode"], 200)
-        self.assertEqual(result["body"]["student_id"], "EDU-STU-2026-00001")
-        self.assertEqual(result["body"]["student"]["first_name"], "John")
+        self.assertEqual(result["statusCode"], 280)
+        self.assertEqual(result["body"]["status"], "pending_confirmation")
+        self.assertIn("preview", result["body"])
+        self.assertIn("extracted_data", result["body"])
 
     def test_calls_ai_client_with_ocr_text(self):
-        student = make_student()
-        self.ai_client.process.return_value = student
-        self.repo.create.return_value = student
+        self.ai_client.extract.return_value = VALID_EXTRACTED
+        self.repo._check_duplicate.return_value = None
 
         feed("John Doe, 10th grade", self.ai_client, self.repo)
 
-        self.ai_client.process.assert_called_once_with("John Doe, 10th grade")
+        self.ai_client.extract.assert_called_once_with("John Doe, 10th grade")
 
-    def test_calls_repo_create_with_student(self):
-        student = make_student()
-        self.ai_client.process.return_value = student
-        self.repo.create.return_value = student
+    def test_calls_repo_check_duplicate(self):
+        self.ai_client.extract.return_value = VALID_EXTRACTED
+        self.repo._check_duplicate.return_value = None
 
         feed("John Doe, 10th grade", self.ai_client, self.repo)
 
-        self.repo.create.assert_called_once_with(student)
+        self.repo._check_duplicate.assert_called_once()
 
     def test_returns_500_on_exception(self):
-        self.ai_client.process.side_effect = Exception("OpenAI error")
+        self.ai_client.extract.side_effect = Exception("OpenAI error")
 
         result = feed("John Doe, 10th grade", self.ai_client, self.repo)
 

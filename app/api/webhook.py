@@ -17,5 +17,7 @@ def handle_webhook(body: dict) -> tuple:
     return handle(
         body,
         whatsapp_client=container.whatsapp_client(),
-        feed=lambda ocr_text: feed(ocr_text, container.ai_client(), container.student_repository())
+        feed=lambda ocr_text, context=None: feed(ocr_text, container.ai_client(), container.student_repository(), context),
+        conversation_store=container.conversation_store(),
+        repo=container.student_repository()
     )

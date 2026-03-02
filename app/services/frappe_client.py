@@ -1,7 +1,19 @@
+import json
 import requests
 
 
 class FrappeClient:
+    # ...existing code...
+
+    def find(self, resource: str, filters: dict) -> list:
+        response = requests.get(
+            f"{self.frappe_url}/api/resource/{resource}",
+            headers=self.headers,
+            params={"filters": json.dumps([[k, "=", v] for k, v in filters.items()])}
+        )
+        if response.status_code != 200:
+            raise Exception(response.text)
+        return response.json().get("data", [])
     def __init__(self, frappe_url: str, api_key: str, api_secret: str):
         self.frappe_url = frappe_url
         self.headers = {

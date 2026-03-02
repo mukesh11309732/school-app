@@ -1,7 +1,10 @@
 import os
+import time
 import unittest
 from dotenv import load_dotenv
-from app.models.student import Student
+from app.models.student import Student, MissingFieldsError, DuplicateStudentError
+from app.models.guardian import Guardian
+from app.models.program_enrollment import ProgramEnrollment
 from app.services.frappe_client import FrappeClient
 from app.repositories.student_repository import StudentRepository
 
@@ -17,54 +20,57 @@ def get_repo() -> StudentRepository:
     return StudentRepository(client)
 
 
+def make_student(name: str, student_id: str, guardian_name: str = "Test Father") -> Student:
+    return Student(
+        student_name=name,
+        date_of_birth="01/01/2005",
+        student_class="10th",
+        student_id=student_id,
+        address="123 Test Street, Test City",
+        guardian=Guardian(guardian_name=guardian_name, relation="Father"),
+        program_enrollment=ProgramEnrollment(program="Class VIII", academic_year="2026-2027")
+    )
+
+
 class TestStudentRepositoryFrappeIntegration(unittest.TestCase):
 
     def setUp(self):
         self.repo = get_repo()
-        self.created_student_id = None
+        self.created = []  # list of {student_id, guardian_id, enrollment_id}
 
     def tearDown(self):
-        """Delete the created student after each test to keep Frappe clean."""
-        if self.created_student_id:
+        for record in self.created:
             try:
-                self.repo.delete(self.created_student_id)
+                self.repo.delete_program_enrollment(record["enrollment_id"])
+            except Exception:
+                pass
+            try:
+                self.repo.delete(record["student_id"])
+            except Exception:
+                pass
+            try:
+                self.repo.delete_guardian(record["guardian_id"])
             except Exception:
                 pass
 
     def test_create_student(self):
-        student = Student(
-            student_name="Test Integration",
-            date_of_birth="01/01/2005",
-            father_name="Test Father",
-            student_class="10th",
-            email="test.integration@school.com"
-        )
+        ts = int(time.time())
+        result = self.repo.create(make_student(f"Intg {ts}", f"STU-INTG-{ts}", f"Father {ts}"))
+        self.created.append(result)
 
-        result = self.repo.create(student)
-
-        self.created_student_id = result.student_id
-        self.assertIsNotNone(result.student_id)
-        self.assertTrue(result.student_id.startswith("EDU-STU-"))
-        print(f"\n[CREATE] Student created: {result.student_id}")
+        self.assertIsNotNone(result["student"].student_id)
+        self.assertTrue(result["student"].student_id.startswith("EDU-STU-"))
+        print(f"\n[CREATE] Student created: {result['student'].student_id}")
 
     def test_get_student(self):
-        # First create a student
-        student = Student(
-            student_name="Get Test",
-            date_of_birth="02/02/2005",
-            father_name="Get Father",
-            student_class="9th",
-            email="get.test@school.com"
-        )
-        created = self.repo.create(student)
-        self.created_student_id = created.student_id
+        ts = int(time.time())
+        result = self.repo.create(make_student(f"Get {ts}", f"STU-GET-{ts}", f"Get Father {ts}"))
+        self.created.append(result)
 
-        # Now fetch it
-        fetched = self.repo.get(created.student_id)
+        fetched = self.repo.get(result["student"].student_id)
 
-        self.assertEqual(fetched.get("name"), created.student_id)
+        self.assertEqual(fetched.get("name"), result["student"].student_id)
         self.assertEqual(fetched.get("first_name"), "Get")
-        self.assertEqual(fetched.get("last_name"), "Test")
         print(f"\n[GET] Student fetched: {fetched.get('name')}")
 
     def test_list_students(self):
@@ -74,11 +80,29 @@ class TestStudentRepositoryFrappeIntegration(unittest.TestCase):
         self.assertGreater(len(students), 0)
         print(f"\n[LIST] Total students: {len(students)}")
 
+    def test_create_duplicate_student_raises_error(self):
+        """Creating a student with same name and guardian should raise DuplicateStudentError."""
+        with self.assertRaises(DuplicateStudentError):
+            self.repo.create(make_student("Test Integration", "STU-INTG-DUP"))
+        print(f"\n[DUPLICATE] Duplicate student correctly rejected")
+
+    def test_create_student_missing_fields_raises_error(self):
+        """Validation should raise MissingFieldsError before hitting Frappe."""
+        with self.assertRaises(Exception) as ctx:
+            Student(
+                student_name="Incomplete Student",
+                date_of_birth="01/01/2005"
+                # missing: student_class, student_id, address, guardian, program_enrollment
+            )
+        exc = ctx.exception
+        self.assertIsInstance(exc, MissingFieldsError)
+        self.assertIn("student_class", exc.missing)
+        self.assertIn("student_id", exc.missing)
+        self.assertIn("address", exc.missing)
+        self.assertIn("guardian", exc.missing)
+        self.assertIn("program_enrollment", exc.missing)
+        print(f"\n[VALIDATION] Missing fields caught: {exc.missing}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-
-
-
-
