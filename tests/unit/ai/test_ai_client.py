@@ -10,8 +10,6 @@ def make_full_student(**kwargs):
     defaults = dict(
         student_name="John Doe",
         date_of_birth="15/08/2005",
-        student_class="10th",
-        student_id="EDU-STU-2026-00001",
         address="123 Main St Mumbai",
         guardian=Guardian(guardian_name="Robert Doe"),
         program_enrollment=ProgramEnrollment(program="Class X", academic_year="2026-2027"),
@@ -48,4 +46,3 @@ class TestAIClient(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-

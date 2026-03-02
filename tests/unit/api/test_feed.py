@@ -6,8 +6,6 @@ from app.api.feed_student_data import StudentFeedService
 VALID_EXTRACTED = {
     "student_name": "John Doe",
     "date_of_birth": "15/08/2005",
-    "student_class": "10th",
-    "student_id": "EDU-STU-2026-00001",
     "address": "123 Main St Mumbai",
     "guardian_name": "Robert Doe",
     "guardian_relation": "Father",
@@ -31,7 +29,7 @@ class TestFeed(unittest.TestCase):
 
     def test_returns_280_on_success_with_preview(self):
         self.ai_client.extract.return_value = VALID_EXTRACTED
-        self.repo._check_duplicate.return_value = None
+        self.repo.check_duplicate_by_name.return_value = None
 
         result = self.service.feed("John Doe, 10th grade")
 
@@ -42,7 +40,7 @@ class TestFeed(unittest.TestCase):
 
     def test_calls_ai_client_with_ocr_text(self):
         self.ai_client.extract.return_value = VALID_EXTRACTED
-        self.repo._check_duplicate.return_value = None
+        self.repo.check_duplicate_by_name.return_value = None
 
         self.service.feed("John Doe, 10th grade")
 
@@ -50,11 +48,28 @@ class TestFeed(unittest.TestCase):
 
     def test_calls_repo_check_duplicate(self):
         self.ai_client.extract.return_value = VALID_EXTRACTED
-        self.repo._check_duplicate.return_value = None
+        self.repo.check_duplicate_by_name.return_value = None
 
         self.service.feed("John Doe, 10th grade")
 
-        self.repo._check_duplicate.assert_called_once()
+        self.repo.check_duplicate_by_name.assert_called_once_with("John Doe", "Robert Doe")
+
+    def test_duplicate_check_happens_even_when_fields_missing(self):
+        """Duplicate check runs as soon as name + guardian are present, before full validation."""
+        from app.models.student import DuplicateStudentError
+        partial = {
+            "student_name": "John Doe",
+            "guardian_name": "Robert Doe",
+            # missing address, program, academic_year
+        }
+        self.ai_client.extract.return_value = partial
+        self.repo.check_duplicate_by_name.side_effect = DuplicateStudentError("John Doe", "Robert Doe")
+
+        result = self.service.feed("John Doe")
+
+        self.assertEqual(result["statusCode"], 409)
+        self.assertEqual(result["body"]["error"], "duplicate_student")
+        self.assertEqual(result["body"]["partial_data"], partial)
 
     def test_returns_500_on_exception(self):
         self.ai_client.extract.side_effect = Exception("OpenAI error")

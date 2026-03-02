@@ -11,19 +11,27 @@ class StudentRepository:
     def __init__(self, client: FrappeClient):
         self.client = client
 
-    def _check_duplicate(self, student: Student) -> None:
-        """Raises DuplicateStudentError if a student with same name and guardian already exists."""
+    def check_duplicate_by_name(self, student_name: str, guardian_name: str) -> None:
+        """Raises DuplicateStudentError if a student with same name and guardian already exists.
+        Can be called early, before full Student model construction."""
+        parts = student_name.strip().split()
+        first_name = parts[0] if parts else ""
+        last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
         matches = self.client.find(self.RESOURCE, {
-            "first_name": student.first_name,
-            "last_name": student.last_name,
+            "first_name": first_name,
+            "last_name": last_name,
         })
         if not matches:
             return
         for match in matches:
             existing = self.client.get(self.RESOURCE, match["name"])
             for g in existing.get("guardians", []):
-                if g.get("guardian_name", "").lower() == student.guardian.guardian_name.lower():
-                    raise DuplicateStudentError(student.student_name, student.guardian.guardian_name)
+                if g.get("guardian_name", "").lower() == guardian_name.lower():
+                    raise DuplicateStudentError(student_name, guardian_name)
+
+    def _check_duplicate(self, student: Student) -> None:
+        """Raises DuplicateStudentError if a student with same name and guardian already exists."""
+        self.check_duplicate_by_name(student.student_name, student.guardian.guardian_name)
 
     def _create_guardian(self, student: Student) -> str:
         data = self.client.post(self.GUARDIAN_RESOURCE, student.guardian.to_dict())
@@ -51,7 +59,7 @@ class StudentRepository:
         student_id = data.get("name", "")
         enrollment_id = self._create_program_enrollment(student_id, student)
         return {
-            "student": student.model_copy(update={"student_id": student_id}),
+            "student": student,
             "student_id": student_id,
             "guardian_id": guardian_id,
             "enrollment_id": enrollment_id,

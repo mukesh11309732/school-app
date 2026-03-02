@@ -17,7 +17,7 @@ def _format_date(date_str: str) -> str:
     return date_str
 
 
-MANDATORY_FIELDS = ["student_name", "address", "student_id", "student_class", "guardian", "program_enrollment"]
+MANDATORY_FIELDS = ["student_name", "address", "guardian", "program_enrollment"]
 
 
 class MissingFieldsError(Exception):
@@ -44,8 +44,6 @@ class Mark(BaseModel):
 class Student(BaseModel):
     student_name: str = ""
     date_of_birth: str = ""
-    student_class: str = ""
-    student_id: str = ""
     address: str = ""
     guardian: Optional[Guardian] = None
     program_enrollment: Optional[ProgramEnrollment] = None
@@ -72,17 +70,21 @@ class Student(BaseModel):
         parts = self.student_name.split()
         return " ".join(parts[1:]) if len(parts) > 1 else ""
 
+    def _email_prefix(self) -> str:
+        """Builds a clean email prefix from the student name, no double dots."""
+        parts = [p for p in [self.first_name.lower(), self.last_name.lower()] if p]
+        return ".".join(parts).replace(" ", "")
+
     def with_email(self) -> "Student":
         """Returns a new Student with a unique generated email."""
-        email = f"{self.first_name.lower()}.{self.last_name.lower()}.{int(time.time())}@school.com".replace(" ", "")
+        email = f"{self._email_prefix()}.{int(time.time())}@school.com"
         return self.model_copy(update={"email": email})
 
     def _generated_email(self) -> str:
-        """Generates a unique email if not provided."""
+        """Returns the stored email or generates a unique one."""
         if self.email:
             return self.email
-        name = f"{self.first_name}.{self.last_name}".lower().replace(" ", "")
-        return f"{name}.{int(time.time())}@school.com"
+        return f"{self._email_prefix()}.{int(time.time())}@school.com"
 
     def to_dict(self) -> dict:
         return {
@@ -92,7 +94,5 @@ class Student(BaseModel):
             "date_of_birth": _format_date(self.date_of_birth),
             "student_email_id": self._generated_email(),
             "address_line_1": self.address,
-            "student_id": self.student_id,
-            "class": self.student_class,
         }
 

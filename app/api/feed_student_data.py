@@ -24,8 +24,6 @@ def _build_student(data: dict) -> Student:
     return Student(
         student_name=data.get("student_name", ""),
         date_of_birth=data.get("date_of_birth", ""),
-        student_class=data.get("student_class", ""),
-        student_id=data.get("student_id", ""),
         address=data.get("address", ""),
         guardian=guardian,
         program_enrollment=program_enrollment,
@@ -48,9 +46,12 @@ class StudentFeedService:
         try:
             extracted = self.ai_client.extract(ocr_text)
             merged = {**(context or {}), **{k: v for k, v in extracted.items() if v}}
+
+            # Early duplicate check — as soon as name + guardian are known
+            if merged.get("student_name") and merged.get("guardian_name"):
+                self.repo.check_duplicate_by_name(merged["student_name"], merged["guardian_name"])
+
             student = _build_student(merged)
-            # Validate duplicate before asking user to confirm
-            self.repo._check_duplicate(student)
             return {
                 "statusCode": 280,
                 "body": {
@@ -72,7 +73,11 @@ class StudentFeedService:
         except DuplicateStudentError as e:
             return {
                 "statusCode": 409,
-                "body": {"error": "duplicate_student", "message": str(e)}
+                "body": {
+                    "error": "duplicate_student",
+                    "message": str(e),
+                    "partial_data": merged
+                }
             }
         except Exception as e:
             return {"statusCode": 500, "body": {"error": str(e)}}
@@ -82,11 +87,14 @@ class StudentFeedService:
         try:
             student = _build_student(data)
             result = self.repo.create(student)
+            student_id = result["student_id"]
+            student_dict = result["student"].to_dict()
+            student_dict["student_id"] = student_id
             return {
                 "statusCode": 200,
                 "body": {
-                    "student_id": result["student"].student_id,
-                    "student": result["student"].to_dict(),
+                    "student_id": student_id,
+                    "student": student_dict,
                     "created": result
                 }
             }

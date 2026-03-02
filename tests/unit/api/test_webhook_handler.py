@@ -34,8 +34,6 @@ class TestWebhookHandler(unittest.TestCase):
                 "extracted_data": {},
                 "preview": {
                     "first_name": "John", "last_name": "Doe",
-                    "student_id": "EDU-STU-2026-00001",
-                    "class": "10th",
                     "date_of_birth": "", "address_line_1": "",
                 }
             }

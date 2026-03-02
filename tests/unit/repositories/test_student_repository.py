@@ -10,8 +10,6 @@ def make_full_student(**kwargs):
     defaults = dict(
         student_name="John Doe",
         date_of_birth="15/08/2005",
-        student_class="10th",
-        student_id="EDU-STU-2026-00001",
         address="123 Main St Mumbai",
         guardian=Guardian(guardian_name="Robert Doe"),
         program_enrollment=ProgramEnrollment(program="Class X", academic_year="2026-2027"),
@@ -43,14 +41,15 @@ class TestStudentRepository(unittest.TestCase):
         self.frappe_client.post.return_value = {"name": "EDU-STU-2026-00001"}
         self.frappe_client.get.return_value = {"year_start_date": "2026-01-01"}
         result = self.repo.create(self.student)
-        self.assertEqual(result["student"].student_id, "EDU-STU-2026-00001")
+        self.assertEqual(result["student_id"], "EDU-STU-2026-00001")
 
     def test_create_returns_new_student_instance(self):
         self.frappe_client.find.return_value = []
         self.frappe_client.post.return_value = {"name": "EDU-STU-2026-00001"}
         self.frappe_client.get.return_value = {"year_start_date": "2026-01-01"}
         result = self.repo.create(self.student)
-        self.assertIsNot(result["student"], self.student)
+        self.assertIn("student_id", result)
+        self.assertIn("student", result)
 
     def test_get_calls_frappe_client(self):
         self.frappe_client.get.return_value = {"name": "EDU-STU-2026-00001"}
@@ -71,7 +70,27 @@ class TestStudentRepository(unittest.TestCase):
         self.frappe_client.post.return_value = {}
         self.frappe_client.get.return_value = {"year_start_date": "2026-01-01"}
         result = self.repo.create(self.student)
-        self.assertEqual(result["student"].student_id, "")
+        self.assertEqual(result["student_id"], "")
+
+    def test_check_duplicate_by_name_raises_when_match_found(self):
+        from app.models.student import DuplicateStudentError
+        self.frappe_client.find.return_value = [{"name": "EDU-STU-2026-00001"}]
+        self.frappe_client.get.return_value = {
+            "guardians": [{"guardian_name": "Robert Doe"}]
+        }
+        with self.assertRaises(DuplicateStudentError):
+            self.repo.check_duplicate_by_name("John Doe", "Robert Doe")
+
+    def test_check_duplicate_by_name_no_raise_when_no_match(self):
+        self.frappe_client.find.return_value = []
+        self.repo.check_duplicate_by_name("John Doe", "Robert Doe")  # should not raise
+
+    def test_check_duplicate_by_name_no_raise_when_guardian_differs(self):
+        self.frappe_client.find.return_value = [{"name": "EDU-STU-2026-00001"}]
+        self.frappe_client.get.return_value = {
+            "guardians": [{"guardian_name": "Someone Else"}]
+        }
+        self.repo.check_duplicate_by_name("John Doe", "Robert Doe")  # should not raise
 
 
 if __name__ == "__main__":

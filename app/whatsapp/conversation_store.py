@@ -38,6 +38,12 @@ class ConversationStore:
         data = self._store.get(sender, {})
         return {k: v for k, v in data.items() if k != "_state"}
 
+    def revert_to_editing(self, sender: str) -> None:
+        """Drops the awaiting_confirmation state but keeps all data so the user can correct fields."""
+        data = self.get_confirmed_data(sender)
+        self._store[sender] = data
+        logger.info("Reverted to editing for %s", sender)
+
     def clear(self, sender: str) -> None:
         """Clears state after successful submission or cancellation."""
         self._store.pop(sender, None)

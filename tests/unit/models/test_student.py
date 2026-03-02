@@ -27,8 +27,6 @@ def make_full_student(**kwargs):
     defaults = dict(
         student_name="John Doe",
         date_of_birth="15/08/2005",
-        student_class="10th",
-        student_id="EDU-STU-2026-00001",
         address="123 Main St Mumbai",
         guardian=Guardian(guardian_name="Robert Doe"),
         program_enrollment=ProgramEnrollment(program="Class X", academic_year="2026-2027"),
@@ -59,6 +57,14 @@ class TestStudent(unittest.TestCase):
         result = s.with_email()
         self.assertIn("john.doe", result.email)
         self.assertIn("@school.com", result.email)
+        self.assertNotIn("..", result.email)
+
+    def test_with_email_single_name_no_double_dot(self):
+        s = make_full_student(student_name="Mukesh", email="")
+        result = s.with_email()
+        self.assertIn("mukesh", result.email)
+        self.assertIn("@school.com", result.email)
+        self.assertNotIn("..", result.email)
 
     def test_with_email_returns_new_instance(self):
         s = make_full_student(student_name="John Doe", email="")
@@ -77,12 +83,12 @@ class TestStudent(unittest.TestCase):
         self.assertEqual(d["doctype"], "Student")
         self.assertEqual(d["student_email_id"], "john.doe@school.com")
         self.assertEqual(d["date_of_birth"], "2005-08-15")
-        self.assertEqual(d["class"], "10th")
         self.assertEqual(d["address_line_1"], "123 Main St Mumbai")
         self.assertNotIn("marks", d)
         self.assertNotIn("email", d)
+        self.assertNotIn("class", d)
+        self.assertNotIn("student_id", d)
 
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-

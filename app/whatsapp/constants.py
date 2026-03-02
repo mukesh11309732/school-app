@@ -1,5 +1,11 @@
 GREETINGS = {"hello", "hi", "hey", "hlo", "hii"}
 
+CONFIRM_KEYWORDS = {"yes", "confirm", "ok", "okay", "y", "haan", "ha"}
+CANCEL_KEYWORDS = {"no", "cancel", "nahi", "nope", "n"}
+EDIT_KEYWORDS = {"edit", "change", "update", "correct", "modify"}
+
+SHOW_DETAILS_KEYWORDS = {"show details", "show my details", "what have i entered", "my details", "details so far", "show entered details", "what i entered"}
+
 HELP_MESSAGE = (
     "👋 Welcome to School App!\n\n"
     "Please enter the student details and we'll take care of the rest! 🎓\n\n"

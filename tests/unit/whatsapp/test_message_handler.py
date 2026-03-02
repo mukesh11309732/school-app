@@ -20,6 +20,26 @@ class TestMessageHandler(unittest.TestCase):
         self.conversation_store = MagicMock()
         self.conversation_store.is_awaiting_confirmation.return_value = False
         self.conversation_store.get.return_value = None
+        self.conversation_store.get_confirmed_data.return_value = {}
+
+    # ...existing code...
+
+    def test_show_details_keyword_returns_entered_details(self):
+        self.conversation_store.get_confirmed_data.return_value = {}
+        self.conversation_store.get.return_value = {"student_name": "John Doe"}
+        for keyword in ["show details", "my details", "details so far"]:
+            self.whatsapp_client.reset_mock()
+            self._handle(make_text_message(keyword))
+            self.whatsapp_client.send_message.assert_called_once()
+            self.feed_service.feed.assert_not_called()
+
+    def test_show_details_works_while_awaiting_confirmation(self):
+        self.conversation_store.is_awaiting_confirmation.return_value = True
+        self.conversation_store.get_confirmed_data.return_value = {"student_name": "John Doe"}
+        self._handle(make_text_message("show details"))
+        reply = self.whatsapp_client.send_message.call_args[0][1]
+        self.assertIn("John Doe", reply)
+        self.feed_service.feed.assert_not_called()
 
     def _handle(self, message):
         return handle_message(message, self.whatsapp_client, self.feed_service, self.conversation_store)
@@ -57,8 +77,6 @@ class TestMessageHandler(unittest.TestCase):
                 },
                 "preview": {
                     "first_name": "John", "last_name": "Doe",
-                    "student_id": "EDU-STU-2026-00001",
-                    "class": "10th",
                     "date_of_birth": "2005-08-15",
                     "address_line_1": "123 Main St",
                 }
