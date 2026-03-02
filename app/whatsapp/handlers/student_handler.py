@@ -1,16 +1,11 @@
 import logging
 from app.api.feed_student_data import StudentFeedService
+from app.models.student import FIELD_LABELS, FIELD_HINTS
 from app.services.whatsapp_client import WhatsAppClient
 from app.whatsapp.conversation_store import ConversationStore
 
 logger = logging.getLogger(__name__)
 
-FIELD_LABELS = {
-    "student_name": "Full Name",
-    "address": "Address",
-    "guardian": "Father/Guardian Name",
-    "program_enrollment": "Program & Academic Year",
-}
 
 
 def handle_student(sender: str, ocr_text: str, whatsapp_client: WhatsAppClient, feed_service: StudentFeedService, conversation_store: ConversationStore) -> None:
@@ -38,10 +33,14 @@ def handle_student(sender: str, ocr_text: str, whatsapp_client: WhatsAppClient, 
     elif status == 422 and body.get("error") == "missing_fields":
         conversation_store.merge(sender, body.get("partial_data", {}))
         missing = body.get("missing_fields", [])
-        missing_readable = [FIELD_LABELS.get(f, f.replace("_", " ").title()) for f in missing]
+        lines = []
+        for f in missing:
+            label = FIELD_LABELS.get(f, f.replace("_", " ").title())
+            hint = FIELD_HINTS.get(f)
+            lines.append(f"• *{label}*" + (f" ({hint})" if hint else ""))
         reply = (
             "⚠️ Some details are missing. Please provide the following:\n"
-            + "\n".join(f"• {f}" for f in missing_readable)
+            + "\n".join(lines)
             + "\n\nYou don't need to repeat what you already sent — just provide the missing details."
         )
         logger.warning("Missing fields for %s: %s", sender, missing)
@@ -57,7 +56,7 @@ def handle_student(sender: str, ocr_text: str, whatsapp_client: WhatsAppClient, 
 
     else:
         error = body.get("error", "Unknown error")
-        reply = f"❌ Failed to create student: {error}"
+        reply = f"⚠️ Something went wrong: {error}"
         logger.error("Feed failed: %s", error)
 
     whatsapp_client.send_message(sender, reply)

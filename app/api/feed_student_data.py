@@ -1,8 +1,36 @@
 from app.ai.ai_client import AIClient
 from app.repositories.student_repository import StudentRepository
-from app.models.student import Student, MissingFieldsError, DuplicateStudentError
+from app.models.student import Student, MissingFieldsError, DuplicateStudentError, MANDATORY_FLAT_KEYS
 from app.models.guardian import Guardian
 from app.models.program_enrollment import ProgramEnrollment
+import json
+
+
+def _parse_frappe_error(error: str) -> str:
+    """Extracts a clean human-readable message from Frappe's nested JSON error string."""
+    try:
+        outer = json.loads(error)
+        server_messages = outer.get("_server_messages", "")
+        if server_messages:
+            msgs = json.loads(server_messages)
+            for msg in msgs:
+                inner = json.loads(msg)
+                message = inner.get("message", "")
+                if message:
+                    return message
+        exc_type = outer.get("exc_type", "")
+        if exc_type:
+            return exc_type.replace("Error", " Error")
+    except Exception:
+        pass
+    return str(error)
+
+
+def _check_missing_flat_keys(data: dict) -> None:
+    """Raises MissingFieldsError using the flat key names before Student model construction."""
+    missing = [k for k in MANDATORY_FLAT_KEYS if not data.get(k)]
+    if missing:
+        raise MissingFieldsError(missing)
 
 
 def _build_student(data: dict) -> Student:
@@ -51,6 +79,8 @@ class StudentFeedService:
             if merged.get("student_name") and merged.get("guardian_name"):
                 self.repo.check_duplicate_by_name(merged["student_name"], merged["guardian_name"])
 
+            # Validate all mandatory flat keys before building the model
+            _check_missing_flat_keys(merged)
             student = _build_student(merged)
             return {
                 "statusCode": 280,
@@ -104,5 +134,11 @@ class StudentFeedService:
                 "body": {"error": "duplicate_student", "message": str(e)}
             }
         except Exception as e:
-            return {"statusCode": 500, "body": {"error": str(e)}}
+            return {
+                "statusCode": 500,
+                "body": {
+                    "message": _parse_frappe_error(str(e)),
+                    "correctable": True
+                }
+            }
 

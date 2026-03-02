@@ -96,7 +96,7 @@ class TestMessageHandler(unittest.TestCase):
         self._handle(make_text_message("John Doe, 10th grade"))
 
         reply = self.whatsapp_client.send_message.call_args[0][1]
-        self.assertIn("Failed", reply)
+        self.assertIn("⚠️", reply)
         self.assertIn("OpenAI timeout", reply)
 
 

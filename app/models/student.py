@@ -1,4 +1,5 @@
 from typing import List, Optional
+from dataclasses import dataclass
 import time
 from pydantic import BaseModel, Field, model_validator
 
@@ -17,7 +18,40 @@ def _format_date(date_str: str) -> str:
     return date_str
 
 
-MANDATORY_FIELDS = ["student_name", "address", "guardian", "program_enrollment"]
+@dataclass
+class StudentFieldMeta:
+    key: str            # flat dict key used in extracted data / conversation store
+    label: str          # human-readable label shown to user
+    prompt_hint: str    # description used in the AI system prompt
+    mandatory: bool = False
+    model_field: str = None  # Student model attribute name; None if not directly on Student
+    hint: str = None    # extra guidance shown to user when this field is missing
+
+
+# Single source of truth — add/remove fields here only
+STUDENT_FIELDS: list[StudentFieldMeta] = [
+    StudentFieldMeta("student_name",      "Full Name",            "student_name (full name)",                                     mandatory=True,  model_field="student_name"),
+    StudentFieldMeta("date_of_birth",     "Date of Birth",        "date_of_birth (DD/MM/YYYY)",                                                    model_field="date_of_birth",    hint="e.g. 15 August 2005"),
+    StudentFieldMeta("address",           "Address",              "address",                                                      mandatory=True,  model_field="address"),
+    StudentFieldMeta("guardian_name",     "Father/Guardian Name", "guardian_name (father or guardian full name)",                 mandatory=True,  model_field="guardian"),
+    StudentFieldMeta("guardian_relation", "Guardian Relation",    "guardian_relation (Father, Mother, Guardian — default Father)"),
+    StudentFieldMeta("program",           "Program",              "program (academic program name, e.g. Class VIII)",             mandatory=True,  model_field="program_enrollment", hint="e.g. Class VIII, Class X"),
+    StudentFieldMeta("academic_year",     "Academic Year",        "academic_year (e.g. 2026-2027)",                               mandatory=True,  model_field="program_enrollment", hint="e.g. 2025-2026"),
+]
+
+# Derived — no need to edit these
+# Unique model fields that are mandatory (deduplicated, preserving order)
+_seen = set()
+MANDATORY_FIELDS = [
+    f.model_field for f in STUDENT_FIELDS
+    if f.mandatory and f.model_field and not (f.model_field in _seen or _seen.add(f.model_field))
+]
+# Flat keys that must be present before constructing the Student model
+MANDATORY_FLAT_KEYS: list[str] = [f.key for f in STUDENT_FIELDS if f.mandatory]
+FIELD_LABELS: dict[str, str] = {f.key: f.label for f in STUDENT_FIELDS}
+FIELD_HINTS: dict[str, str] = {f.key: f.hint for f in STUDENT_FIELDS if f.hint}
+FIELD_DISPLAY: list[tuple[str, str]] = [(f.key, f.label) for f in STUDENT_FIELDS]
+PROMPT_FIELDS: list[str] = [f.prompt_hint for f in STUDENT_FIELDS]
 
 
 class MissingFieldsError(Exception):

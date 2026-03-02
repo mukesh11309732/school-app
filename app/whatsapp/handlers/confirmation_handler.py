@@ -26,13 +26,23 @@ def handle_confirmation(sender: str, text: str, whatsapp_client: WhatsAppClient,
             )
             logger.info("Student confirmed and created: %s", student["student_id"])
         else:
-            conversation_store.clear(sender)
-            reply = f"❌ Failed to create student: {body.get('message', body.get('error', 'Unknown error'))}"
+            message = body.get("message", body.get("error", "Unknown error"))
+            if body.get("correctable"):
+                # Keep conversation alive — revert to editing so user can fix the data
+                conversation_store.revert_to_editing(sender)
+                reply = (
+                    f"⚠️ {message}\n\n"
+                    "Please correct the details and send them again.\n"
+                    "Type *show details* to see what's been entered so far."
+                )
+            else:
+                conversation_store.clear(sender)
+                reply = f"⚠️ {message}"
             logger.error("Confirm failed for %s: %s", sender, body)
 
     elif keyword in CANCEL_KEYWORDS:
         conversation_store.clear(sender)
-        reply = "❌ Cancelled. Send student details again whenever you're ready."
+        reply = "🚫 Cancelled. Send student details again whenever you're ready."
         logger.info("Student creation cancelled by %s", sender)
 
     elif keyword in EDIT_KEYWORDS:

@@ -1,6 +1,7 @@
+import json
 import unittest
 from unittest.mock import MagicMock
-from app.api.feed_student_data import StudentFeedService
+from app.api.feed_student_data import StudentFeedService, _parse_frappe_error
 
 
 VALID_EXTRACTED = {
@@ -78,6 +79,40 @@ class TestFeed(unittest.TestCase):
 
         self.assertEqual(result["statusCode"], 500)
         self.assertIn("OpenAI error", result["body"]["error"])
+
+
+class TestParseFrappeError(unittest.TestCase):
+
+    def _make_frappe_error(self, message: str) -> str:
+        inner = json.dumps({"message": message, "title": "Message", "indicator": "red", "raise_exception": 1})
+        return json.dumps({
+            "exc_type": "DoesNotExistError",
+            "_server_messages": json.dumps([inner])
+        })
+
+    def test_extracts_message_from_nested_frappe_error(self):
+        error = self._make_frappe_error("Academic Year 2025-2026 not found")
+        self.assertEqual(_parse_frappe_error(error), "Academic Year 2025-2026 not found")
+
+    def test_falls_back_to_raw_string_if_not_json(self):
+        self.assertEqual(_parse_frappe_error("plain error"), "plain error")
+
+    def test_confirm_returns_correctable_on_frappe_error(self):
+        from unittest.mock import MagicMock
+        ai_client = MagicMock()
+        repo = MagicMock()
+        service = StudentFeedService(ai_client=ai_client, repo=repo)
+        repo.create.side_effect = Exception(self._make_frappe_error("Academic Year 2025-2026 not found"))
+
+        data = {
+            "student_name": "John Doe", "address": "123 St",
+            "guardian_name": "Robert", "guardian_relation": "Father",
+            "program": "Class X", "academic_year": "2025-2026"
+        }
+        result = service.confirm(data)
+        self.assertEqual(result["statusCode"], 500)
+        self.assertEqual(result["body"]["message"], "Academic Year 2025-2026 not found")
+        self.assertTrue(result["body"]["correctable"])
 
 
 if __name__ == "__main__":

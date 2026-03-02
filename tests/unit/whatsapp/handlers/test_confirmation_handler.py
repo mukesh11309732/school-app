@@ -47,15 +47,28 @@ class TestConfirmationHandler(unittest.TestCase):
         self._handle("919999999999", "yes")
         self.conversation_store.clear.assert_called_once_with("919999999999")
 
-    def test_yes_sends_error_on_confirm_failure(self):
+    def test_yes_sends_error_on_confirm_failure_clears_when_not_correctable(self):
         self.feed_service.confirm.return_value = {
             "statusCode": 500,
-            "body": {"error": "Frappe down"}
+            "body": {"message": "Something went wrong"}
         }
         self._handle("919999999999", "yes")
+        self.conversation_store.clear.assert_called_once_with("919999999999")
         reply = self.whatsapp_client.send_message.call_args[0][1]
-        self.assertIn("❌", reply)
-        self.assertIn("Frappe down", reply)
+        self.assertIn("⚠️", reply)
+        self.assertIn("Something went wrong", reply)
+
+    def test_yes_keeps_conversation_alive_on_correctable_error(self):
+        self.feed_service.confirm.return_value = {
+            "statusCode": 500,
+            "body": {"message": "Academic Year 2025-2026 not found", "correctable": True}
+        }
+        self._handle("919999999999", "yes")
+        self.conversation_store.revert_to_editing.assert_called_once_with("919999999999")
+        self.conversation_store.clear.assert_not_called()
+        reply = self.whatsapp_client.send_message.call_args[0][1]
+        self.assertIn("Academic Year 2025-2026 not found", reply)
+        self.assertIn("correct", reply.lower())
 
     def test_no_cancels_and_clears(self):
         self._handle("919999999999", "no")

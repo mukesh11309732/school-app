@@ -89,7 +89,7 @@ class TestStudentHandler(unittest.TestCase):
         }
         self._handle("John Doe, 10th grade")
         reply = self.whatsapp_client.send_message.call_args[0][1]
-        self.assertIn("❌", reply)
+        self.assertIn("⚠️", reply)
         self.assertIn("OpenAI timeout", reply)
 
     def test_passes_context_from_store(self):
